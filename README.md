@@ -24,10 +24,9 @@ I just couldn't find something that has both delay execution and task priority t
 ## Use case?
 
 You're scraping an API that has a very low limit of how many requests you can make in a minute and you 
-want to make sure you first get the resources that you can about the most.
+want to make sure you first get the resources that you care about the most.
 
-* You can assign each task an arbitrary priority (for example if you care about the most recent items, 
-    you can use a timestamp as a priority)
+* You can assign each task an arbitrary priority (if you care about recent items more you can use item timestamp as priority)
 * When you reach the rate limit, you can put the task back in the queue and set its delay until rate limit replanishes
 
 ## Example
@@ -82,6 +81,11 @@ delayed tasks ready to be enqueued.
 ```bash
 poetry run python delayed_tasks_scheduler.py
 ```
+
+
+## Installation
+
+TBD
 
 ## Limitations
 

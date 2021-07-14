@@ -76,6 +76,9 @@ local function _enqueue_delayed()
     local tasks = redis.call('ZRANGEBYSCORE', delayedQueue, 0, now)
 
     for k,task in pairs(tasks) do 
+
+        -- FIXME: temporary hack, fix ASAP.
+        -- this will probably break when there's another :: somewhere in the task
         local deserilized = split(task, '::')
         local priority = deserilized[1]
         local payload = deserilized[2]
