@@ -9,6 +9,7 @@ python = "^3.9"
 pydantic = "^1.8.2"
 redis = "^3.5.3"
 cloudpickle = "^1.6.0"
+pytest = "^6.2.4"
 
 [tool.poetry.dev-dependencies]
 
