@@ -1,5 +1,7 @@
 # Delayed Priority Queue
 
+![logo](/svgs/logo.svg)
+
 ## WORK IN PROGRESS
 
 not tested, not used yet, just for fun
