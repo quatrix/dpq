@@ -1,6 +1,6 @@
 # Delayed Priority Queue
 
-![logo](/svgs/logo.svg)
+![logo](/imgs/logo.png)
 
 ## WORK IN PROGRESS
 
