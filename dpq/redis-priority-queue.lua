@@ -24,6 +24,18 @@ end
 assert(not isempty(action), 'ERR1: Action is missing')
 assert(not isempty(queueName), 'ERR2: Queue name is missing')
 
+local function _already_queued(payload, priority)
+    if redis.call('ZSCORE', queueName, payload) ~= nil then
+        return true
+    end
+
+    if redis.call('ZSCORE', delayedQueue, serialize(priority, payload)) ~= nil then
+        return true
+    end
+
+    return false
+end
+
 local function _push()
     local payload = ARGV[3]
     local priority = ARGV[4]
@@ -31,6 +43,10 @@ local function _push()
     local retries = tonumber(ARGV[6])
 
     assert(not isempty(payload), 'ERR5: Payload is missing')
+
+    if _already_queued(payload, priority) then
+        return
+    end
 
     redis.call('HSET', retriesLookup, payload, retries)
 
@@ -58,8 +74,6 @@ local function _pop()
     end
 
     local remaining_attempts = redis.call('HINCRBY', retriesLookup, payload, -1)
-
-    redis.log(redis.LOG_WARNING, "__POP__ ", remaining_attempts)
 
     if remaining_attempts == -1 then
         redis.call('HDEL', retriesLookup, payload)

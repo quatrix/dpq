@@ -90,9 +90,8 @@ class DPQ(BaseModel):
         task = self.queue.eval('pop', self.queue_name, invisible_until)
 
         if task is None:
-            return None, None, None, None
+            return
 
-        print(task)
         payload, priority, remaining_attempts = task
 
         def on_success():

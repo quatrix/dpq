@@ -25,7 +25,7 @@ def test_basic_push_and_pop():
 
     assert task == 'hey'
 
-    assert dpq.pop() == (None, None, None, None)
+    assert dpq.pop() == None
 
 def test_get_size():
     dpq = create_dpq()
@@ -59,7 +59,7 @@ def test_push_and_pop_with_delay():
     dpq.enqueue_delayed()
 
     assert dpq.get_size() == 1
-    assert dpq.pop() == (None, None, None, None)
+    assert dpq.pop() == None
 
     time.sleep(1)
 
@@ -129,7 +129,7 @@ def test_task_becomes_visible_if_worker_is_too_slow():
     # the task is invisible
 
     dpq.enqueue_delayed()
-    assert dpq.pop() == (None, None, None, None)
+    assert dpq.pop() == None
 
     time.sleep(default_visibility)
     dpq.enqueue_delayed()
@@ -148,7 +148,7 @@ def test_pop_after_setting_visibility_to_0():
 
     dpq.enqueue_delayed()
 
-    assert dpq.pop() == (None, None, None, None)
+    assert dpq.pop() == None
 
     set_visibility(0)
     dpq.enqueue_delayed()
@@ -177,13 +177,21 @@ def test_task_gets_dropped_after_retries():
     set_visibility(0)
     dpq.enqueue_delayed()
 
-    assert dpq.pop() == (None, None, None, None)
+    assert dpq.pop() == None
 
-@pytest.mark.skip(reason="not implemented")
+
 def test_pushing_task_already_enqueued():
-    pass
+    dpq = create_dpq()
 
+    dpq.push("hey", delay=5)
 
+    assert dpq.pop() == None
+
+    # pushing a task that's already
+    # exist and already delayed, 
+    # should keep it delayed.
+    dpq.push("hey")
+    assert dpq.pop() == None
 
 @pytest.mark.skip(reason="not implemented")
 def test_poping_when_rate_limit_still_in_effect():
@@ -194,11 +202,6 @@ def test_poping_when_rate_limit_still_in_effect():
 def test_push_with_priority_and_delay():
     pass
 
-
-
-@pytest.mark.skip(reason="not implemented")
-def test_pushing_task_already_enqueued():
-    pass
 
 @pytest.mark.skip(reason="not implemented")
 def test_not_calling_set_success_makes_task_visible_to_other_worker():
