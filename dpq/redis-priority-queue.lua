@@ -1,13 +1,7 @@
--- redis-priority-queue
--- Author: Gabriel Bordeaux (gabfl)
--- Github: https://github.com/gabfl/redis-priority-queue
--- Version: 1.0.4
--- (can only be used in 3.2+)
-
--- Get mandatory vars
 local action = ARGV[1];
 local queueName = ARGV[2];
 local delayedQueue = queueName .. "::delayed"
+local retriesLookup = queueName .. "::retries"
 
 -- returns true if empty or null
 -- http://stackoverflow.com/a/19667498/50501
@@ -27,7 +21,6 @@ local function split(s, delimiter)
     return result
 end
 
--- Making sure required fields are not nil
 assert(not isempty(action), 'ERR1: Action is missing')
 assert(not isempty(queueName), 'ERR2: Queue name is missing')
 
@@ -35,13 +28,16 @@ local function _push()
     local payload = ARGV[3]
     local priority = ARGV[4]
     local invisibleUntil = tonumber(ARGV[5])
+    local retries = tonumber(ARGV[6])
 
     assert(not isempty(payload), 'ERR5: Payload is missing')
+
+    redis.call('HSET', retriesLookup, payload, retries)
 
     if invisibleUntil > 0 then
         redis.call('ZADD', delayedQueue, 'NX', invisibleUntil, serialize(priority, payload))
     else
-        return redis.call('ZADD', queueName, 'NX', priority, payload)
+        redis.call('ZADD', queueName, 'NX', priority, payload)
     end
 end
 
@@ -57,7 +53,16 @@ local function _pop()
     local payload = task[1]
     local priority = task[2]
 
-    if task[1] == nil then
+    if payload == nil then
+        return nil
+    end
+
+    local remaining_attempts = redis.call('HINCRBY', retriesLookup, payload, -1)
+
+    redis.log(redis.LOG_WARNING, "__POP__ ", remaining_attempts)
+
+    if remaining_attempts == -1 then
+        redis.call('HDEL', retriesLookup, payload)
         return nil
     end
 
@@ -68,20 +73,26 @@ local function _pop()
 
     redis.call('ZADD', delayedQueue, 'NX', invisibleUntil, serialize(priority, payload))
 
-    return task
+    return {payload, priority, remaining_attempts}
 end
 
 local function _enqueue_delayed()
     local now = tonumber(ARGV[3])
     local tasks = redis.call('ZRANGEBYSCORE', delayedQueue, 0, now)
 
+    redis.log(redis.LOG_WARNING, "_enqueue_delayed")
+
     for k,task in pairs(tasks) do 
+
 
         -- FIXME: temporary hack, fix ASAP.
         -- this will probably break when there's another :: somewhere in the task
         local deserilized = split(task, '::')
         local priority = deserilized[1]
         local payload = deserilized[2]
+
+        redis.log(redis.LOG_WARNING, "task: ", payload)
+
 
         redis.call('ZADD', queueName, 'NX', priority, payload)
         redis.call('ZREM', delayedQueue, task)
@@ -100,9 +111,15 @@ local function _set_visibility()
     local priority = ARGV[4] 
     local visibility = ARGV[5] 
 
-    redis.call('ZADD', delayedQueue, 'NX', visibility, serialize(priority, payload))
+    redis.call('ZADD', delayedQueue, 'XX', visibility, serialize(priority, payload))
 end
 
+local function _get_size()
+    local runnable_size = redis.call('ZCARD', queueName)
+    local invisible_size = redis.call('ZCARD', delayedQueue)
+
+    return runnable_size + invisible_size
+end
 
 if action == 'push' then
     return _push()
@@ -114,6 +131,8 @@ elseif action == 'remove_from_delayed_queue' then
     return _remove_from_delayed_queue()
 elseif action == 'set_visibility' then
     return _set_visibility()
+elseif action == 'get_size' then
+    return _get_size()
 else
     error('ERR3: Invalid action.')
 end

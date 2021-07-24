@@ -1,5 +1,5 @@
 from redis import Redis
-from dpq import RpqLua
+from dpq import DPQ
 import time
 import sys
 
@@ -11,12 +11,13 @@ def _now():
 
 def main():
     redis = Redis()
-    client = RpqLua(redis)
     queue_name = sys.argv[1]
+    dpq = DPQ(redis=redis, queue_name=queue_name)
 
     print(f'monitoring f{queue_name}')
+
     while True:
-        client.eval('enqueue_delayed', queue_name, _now())
+        dpq.enqueue_delayed()
         time.sleep(1)
 
 

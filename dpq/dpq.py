@@ -15,8 +15,8 @@ class DPQ(BaseModel):
     redis: Any
     queue: Any
     queue_name: str
-    default_visibility: int = 5
-    default_timeout: int = 60
+    default_visibility: int = 10
+    default_retries: int = 5
 
     def __init__(self, **data: Any):
         super().__init__(**data)
@@ -41,7 +41,25 @@ class DPQ(BaseModel):
         if delay > 0:
             delay = _now() + delay
 
-        self.queue.eval('push', self.queue_name, cloudpickle.dumps(task), priority, delay)
+        task = cloudpickle.dumps(task)
+        self.queue.eval('push', self.queue_name, task, priority, delay, self.default_retries)
+
+    def get_size(self):
+        """Returns size of queue
+
+        Returns total number of tasks, runnable and delayed
+        """
+
+        return self.queue.eval('get_size', self.queue_name)
+
+    def enqueue_delayed(self):
+        """Enqueue delayed
+
+        Takes tasks in invisible queue ready to be run and moves
+        them to runnable queue.
+        """
+
+        self.queue.eval('enqueue_delayed', self.queue_name, _now())
 
     def pop(self):
         """Pops the highest priority task from the queue
@@ -72,18 +90,17 @@ class DPQ(BaseModel):
         task = self.queue.eval('pop', self.queue_name, invisible_until)
 
         if task is None:
-            return None, None, None
+            return None, None, None, None
 
-        payload, priority = task
+        print(task)
+        payload, priority, remaining_attempts = task
 
         def on_success():
             self.queue.eval('remove_from_delayed_queue', self.queue_name, payload, priority)
 
         def set_visibility(seconds: int):
-            if seconds > 0:
-                seconds = _now() + seconds
-
+            seconds = _now() + seconds
             self.queue.eval('set_visibility', self.queue_name, payload, priority, seconds)
 
-        return cloudpickle.loads(payload), on_success, set_visibility
+        return cloudpickle.loads(payload), on_success, set_visibility, remaining_attempts
 
