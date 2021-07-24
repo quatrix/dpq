@@ -194,16 +194,18 @@ def test_pushing_task_already_enqueued():
     assert dpq.pop() == None
 
 @pytest.mark.skip(reason="not implemented")
-def test_poping_when_rate_limit_still_in_effect():
-    pass
+def test_visibility_for_group_of_tasks():
+    dpq = create_dpq()
 
+    dpq.push("hey", delay=5, group_id="aaa")
+    dpq.push("ho", group_id="aaa")
+    dpq.push("lol")
 
-@pytest.mark.skip(reason="not implemented")
-def test_push_with_priority_and_delay():
-    pass
+    # when poping, hey and ho should be invisible
+    # because we set visibility on hey and ho is
+    # in the same group
 
+    task, _, _, _ = dpq.pop()
+    assert task == "lol"
 
-@pytest.mark.skip(reason="not implemented")
-def test_not_calling_set_success_makes_task_visible_to_other_worker():
-    pass
-
+    assert dpq.pop() == None

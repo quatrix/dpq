@@ -25,15 +25,11 @@ assert(not isempty(action), 'ERR1: Action is missing')
 assert(not isempty(queueName), 'ERR2: Queue name is missing')
 
 local function _already_queued(payload, priority)
-    if redis.call('ZSCORE', queueName, payload) ~= nil then
-        return true
-    end
+    local in_runnable = redis.call('ZSCORE', queueName, payload)
 
-    if redis.call('ZSCORE', delayedQueue, serialize(priority, payload)) ~= nil then
-        return true
-    end
+    local in_delayed = redis.call('ZSCORE', delayedQueue, serialize(priority, payload)) 
 
-    return false
+    return in_runnable or in_delayed
 end
 
 local function _push()
