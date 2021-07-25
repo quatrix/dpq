@@ -22,7 +22,7 @@ class DPQ(BaseModel):
         super().__init__(**data)
         self.queue = RpqLua(self.redis)
 
-    def push(self, task: str, priority: float = 0, delay: int = 0):
+    def push(self, task: str, priority: float = 0, delay: int = 0, group_id: str = None):
         """Push a task on the queue
 
         Pushes a task on the queue with an optional priority and a delay.
@@ -37,12 +37,25 @@ class DPQ(BaseModel):
             priority: float (Redis uses 64bit percision doubles for scores)
             delay: int (number of seconds to wait before task becomes available to workers)
         """
+        assert group_id != '0', '0 is reserved to indicate not part of a group'
+
+        if group_id is None:
+            group_id = '0'
 
         if delay > 0:
             delay = _now() + delay
 
         task = cloudpickle.dumps(task)
-        self.queue.eval('push', self.queue_name, task, priority, delay, self.default_retries)
+
+        self.queue.eval(
+            'push', 
+            self.queue_name,
+            task, 
+            priority, 
+            delay, 
+            self.default_retries, 
+            group_id
+        )
 
     def get_size(self):
         """Returns size of queue
@@ -60,6 +73,18 @@ class DPQ(BaseModel):
         """
 
         self.queue.eval('enqueue_delayed', self.queue_name, _now())
+
+    def delay_group(self, group_id: str, delay: int):
+        """Set delay for a group_id
+
+        all tasks with same group_id will be delayed 
+        for `delay` seconds from when function is called
+        """
+
+        # FIXME: maybe/probably better to use absolute time 
+        #delay = _now() + delay
+
+        self.queue.eval('delay_group', self.queue_name, group_id, _now() + delay, delay)
 
     def pop(self):
         """Pops the highest priority task from the queue
@@ -92,14 +117,14 @@ class DPQ(BaseModel):
         if task is None:
             return
 
-        payload, priority, remaining_attempts = task
+        payload, group_id, priority, remaining_attempts = task
 
         def on_success():
-            self.queue.eval('remove_from_delayed_queue', self.queue_name, payload, priority)
+            self.queue.eval('remove_from_delayed_queue', self.queue_name, payload, group_id, priority)
 
         def set_visibility(seconds: int):
             seconds = _now() + seconds
-            self.queue.eval('set_visibility', self.queue_name, payload, priority, seconds)
+            self.queue.eval('set_visibility', self.queue_name, payload, group_id, priority, seconds)
 
         return cloudpickle.loads(payload), on_success, set_visibility, remaining_attempts
 

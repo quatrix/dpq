@@ -156,6 +156,34 @@ def test_pop_after_setting_visibility_to_0():
     task, _, set_visibility, _ = dpq.pop()
     assert task == 'lol'
 
+
+def test_getting_next_task_when_higher_priority_task_retries_run_out():
+    dpq = create_dpq(default_retries=2)
+
+    dpq.push('lol', priority=2)
+    dpq.push('heh', priority=1)
+
+    task, _, set_visibility, remaining_attempts = dpq.pop()
+    assert task == 'lol'
+    assert remaining_attempts == 1
+
+    # so we can pop() it again
+    set_visibility(0)
+    dpq.enqueue_delayed()
+
+    task, _, set_visibility, remaining_attempts = dpq.pop()
+    assert task == 'lol'
+    assert remaining_attempts == 0
+
+    # so we can pop() it again
+    set_visibility(0)
+    dpq.enqueue_delayed()
+
+    task, _, set_visibility, remaining_attempts = dpq.pop()
+    assert task == 'heh'
+    assert remaining_attempts == 1
+
+
 def test_task_gets_dropped_after_retries():
     dpq = create_dpq(default_retries=2)
 
@@ -231,19 +259,33 @@ def test_extending_visibility():
     dpq.enqueue_delayed()
     assert dpq.pop() == None
 
-@pytest.mark.skip(reason="not implemented")
+def test_pushing_with_group_id():
+    dpq = create_dpq()
+
+    dpq.push("hey", group_id="aaa")
+    task, _, _, _ = dpq.pop()
+    assert task == "hey"
+
 def test_visibility_for_group_of_tasks():
     dpq = create_dpq()
 
-    dpq.push("hey", delay=5, group_id="aaa")
-    dpq.push("ho", group_id="aaa")
-    dpq.push("lol")
+    dpq.push("hey", group_id="aaa", priority=5)
+    dpq.push("ho", group_id="aaa", priority=10)
+    dpq.push("vova", priority=1)
 
-    # when poping, hey and ho should be invisible
-    # because we set visibility on hey and ho is
-    # in the same group
+    dpq.delay_group("aaa", 1)
+    dpq.enqueue_delayed()
 
     task, _, _, _ = dpq.pop()
-    assert task == "lol"
+    assert task == "vova"
+
+    time.sleep(1)
+    dpq.enqueue_delayed()
+
+    task, _, _, _ = dpq.pop()
+    assert task == "ho"
+
+    task, _, _, _ = dpq.pop()
+    assert task == "hey"
 
     assert dpq.pop() == None
