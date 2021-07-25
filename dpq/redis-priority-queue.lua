@@ -33,22 +33,6 @@ local function _already_queued(payload, priority)
     return in_runnable or in_delayed
 end
 
--- FIXME: for debugging binary 
-local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' 
-local function enc(data)
-    return ((data:gsub('.', function(x) 
-        local r,b='',x:byte()
-        for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
-        return r;
-    end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
-        if (#x < 6) then return '' end
-        local c=0
-        for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
-        return b:sub(c+1,c+1)
-    end)..({ '', '==', '=' })[#data%3+1])
-end
-
-
 local function _push()
     local payload = ARGV[3]
     local priority = ARGV[4]
@@ -58,14 +42,7 @@ local function _push()
 
     assert(not isempty(payload), 'ERR5: Payload is missing')
 
-    -- redis.log(redis.LOG_WARNING, 'payload: ', payload)
-    -- redis.log(redis.LOG_WARNING, 'group_id: ', group_id)
-
     local packed_payload = cmsgpack.pack({payload, group_id})
-
-    redis.log(redis.LOG_WARNING, 'push() payload: ', enc(packed_payload))
-
-    -- redis.log(redis.LOG_WARNING, 'push() payload: ', enc(payload))
 
     if _already_queued(packed_payload, priority) then
         return
@@ -94,8 +71,6 @@ local function _pop()
     do
         local value = redis.call('ZPOPMAX', queueName, 1)
 
-        -- redis.log(redis.LOG_WARNING, 'pop() payload: ', enc(task[1]))
-
         local packed_payload = value[1]
         local priority = value[2]
 
@@ -108,7 +83,6 @@ local function _pop()
         local group_id = unpacked_payload[2]
 
         local delay = redis.call('GET', create_group_delay_key(group_id))
-        redis.log(redis.LOG_WARNING, '--delay-- ', delay)
 
         if delay then
             redis.call( 'ZADD', delayedQueue, 'NX', delay, serialize(priority, packed_payload))
@@ -136,8 +110,6 @@ end
 local function _enqueue_delayed()
     local now = tonumber(ARGV[3])
     local tasks = redis.call('ZRANGEBYSCORE', delayedQueue, 0, now)
-
-    redis.log(redis.LOG_WARNING, "_enqueue_delayed")
 
     for k,task in pairs(tasks) do 
         local deserilized = deserialize(task)
@@ -176,7 +148,6 @@ local function _delay_group()
 	local delay = tonumber(ARGV[4])
 	local expire = tonumber(ARGV[5])
 
-    redis.log(redis.LOG_WARNING, ' setting group delay = ', delay)
     redis.call('SET', create_group_delay_key(group_id), delay, 'EX', expire)
 end
 
