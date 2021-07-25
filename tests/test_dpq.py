@@ -193,6 +193,44 @@ def test_pushing_task_already_enqueued():
     dpq.push("hey")
     assert dpq.pop() == None
 
+def test_pushing_same_task_second_time_restart_retries():
+    dpq = create_dpq(default_retries=2)
+
+    dpq.push('lol')
+
+    task, remove_task, set_visibility, remaining_attempts = dpq.pop()
+    assert task == 'lol'
+    assert remaining_attempts == 1
+
+    remove_task()
+
+    dpq.push('lol')
+
+    task, remove_task, set_visibility, remaining_attempts = dpq.pop()
+    assert task == 'lol'
+    assert remaining_attempts == 1
+
+
+def test_extending_visibility():
+    dpq = create_dpq(default_visibility=1)
+
+    dpq.push('lol')
+
+    task, _, set_visibility, _ = dpq.pop()
+    assert task == 'lol'
+
+    dpq.enqueue_delayed()
+    assert dpq.pop() == None
+
+    # extend by 2 second should 
+    # keep the task invisible and 
+    # when pop() called it will get nothing
+    set_visibility(2)
+    time.sleep(1)
+
+    dpq.enqueue_delayed()
+    assert dpq.pop() == None
+
 @pytest.mark.skip(reason="not implemented")
 def test_visibility_for_group_of_tasks():
     dpq = create_dpq()
