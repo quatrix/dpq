@@ -2,6 +2,7 @@ local action = ARGV[1];
 local queueName = ARGV[2];
 local delayedQueue = queueName .. "::delayed"
 local retriesLookup = queueName .. "::retries"
+local attemptsLookup = queueName .. "::attempts"
 local delayKeyPrefix = queueName .. "::delay::"
 
 -- returns true if empty or null
@@ -48,7 +49,10 @@ local function _push()
         return
     end
 
+    -- we remember how many retries this task should have
+    -- and initiate attempts count to 0
     redis.call('HSET', retriesLookup, packed_payload, retries)
+    redis.call('HSET', attemptsLookup, packed_payload, 0)
 
     if invisibleUntil > 0 then
         redis.call('ZADD', delayedQueue, 'NX', invisibleUntil, serialize(priority, packed_payload))
@@ -87,10 +91,15 @@ local function _pop()
         if delay then
             redis.call( 'ZADD', delayedQueue, 'NX', delay, serialize(priority, packed_payload))
         else
-            local remaining_attempts = redis.call('HINCRBY', retriesLookup, packed_payload, -1)
+            local retries = tonumber(redis.call('HGET', retriesLookup, packed_payload))
+            local attempt = tonumber(redis.call('HINCRBY', attemptsLookup, packed_payload, 1))
 
-            if remaining_attempts == -1 then
+            if attempt > retries then
                 redis.call('HDEL', retriesLookup, packed_payload)
+                redis.call('HDEL', attemptsLookup, packed_payload)
+
+                -- the loop will continue looking for the next
+                -- runnable task.
             else
 
                 -- when worker takes a task, we make it invisible for a specified 
@@ -99,7 +108,7 @@ local function _pop()
                 -- if a worker fails processing it should make the task visibile right away.
                 redis.call('ZADD', delayedQueue, 'NX', invisibleUntil, serialize(priority, packed_payload))
 
-                return {payload, group_id, priority, remaining_attempts}
+                return {payload, group_id, priority, attempt}
             end
         end
     end

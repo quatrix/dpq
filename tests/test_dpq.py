@@ -163,25 +163,25 @@ def test_getting_next_task_when_higher_priority_task_retries_run_out():
     dpq.push('lol', priority=2)
     dpq.push('heh', priority=1)
 
-    task, _, set_visibility, remaining_attempts = dpq.pop()
+    task, _, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 1
+    assert attempt == 1
 
     # so we can pop() it again
     set_visibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, remaining_attempts = dpq.pop()
+    task, _, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 0
+    assert attempt == 2
 
     # so we can pop() it again
     set_visibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, remaining_attempts = dpq.pop()
+    task, _, set_visibility, attempt = dpq.pop()
     assert task == 'heh'
-    assert remaining_attempts == 1
+    assert attempt == 1
 
 
 def test_task_gets_dropped_after_retries():
@@ -189,17 +189,17 @@ def test_task_gets_dropped_after_retries():
 
     dpq.push('lol')
 
-    task, _, set_visibility, remaining_attempts = dpq.pop()
+    task, _, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 1
+    assert attempt == 1
 
     # so we can pop() it again
     set_visibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, remaining_attempts = dpq.pop()
+    task, _, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 0
+    assert attempt == 2
 
     # so we can pop() it again
     set_visibility(0)
@@ -226,17 +226,17 @@ def test_pushing_same_task_second_time_restart_retries():
 
     dpq.push('lol')
 
-    task, remove_task, set_visibility, remaining_attempts = dpq.pop()
+    task, remove_task, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 1
+    assert attempt == 1
 
     remove_task()
 
     dpq.push('lol')
 
-    task, remove_task, set_visibility, remaining_attempts = dpq.pop()
+    task, remove_task, set_visibility, attempt = dpq.pop()
     assert task == 'lol'
-    assert remaining_attempts == 1
+    assert attempt == 1
 
 
 def test_extending_visibility():

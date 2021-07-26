@@ -117,7 +117,7 @@ class DPQ(BaseModel):
         if task is None:
             return
 
-        payload, group_id, priority, remaining_attempts = task
+        payload, group_id, priority, attempt = task
 
         def on_success():
             self.queue.eval('remove_from_delayed_queue', self.queue_name, payload, group_id, priority)
@@ -126,5 +126,5 @@ class DPQ(BaseModel):
             seconds = _now() + seconds
             self.queue.eval('set_visibility', self.queue_name, payload, group_id, priority, seconds)
 
-        return cloudpickle.loads(payload), on_success, set_visibility, remaining_attempts
+        return cloudpickle.loads(payload), on_success, set_visibility, attempt 
 
