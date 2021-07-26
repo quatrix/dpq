@@ -17,13 +17,17 @@ def create_dpq(**kwargs):
 
     return dpq
 
+def test_pop_before_push():
+    dpq = create_dpq()
+    assert dpq.pop() == None
+
 def test_basic_push_and_pop():
     dpq = create_dpq()
 
     dpq.push('hey')
-    task, _, _, _ = dpq.pop() 
+    task = dpq.pop() 
 
-    assert task == 'hey'
+    assert task.payload  == 'hey'
 
     assert dpq.pop() == None
 
@@ -64,9 +68,8 @@ def test_push_and_pop_with_delay():
     time.sleep(1)
 
     dpq.enqueue_delayed()
-    task, _, _, _ = dpq.pop()
-
-    assert task == 'lol'
+    assert dpq.pop().payload == 'lol'
+    assert dpq.pop() == None
 
 
 def test_push_with_priority():
@@ -79,13 +82,10 @@ def test_push_with_priority():
 
     assert dpq.get_size() == 4
 
-    tasks = []
-
-    for _ in range(4):
-        task, _, _, _ = dpq.pop()
-        tasks.append(task)
+    tasks = [dpq.pop().payload for _ in range(4)]
 
     assert tasks == ['hey', 'ho', 'lets', 'go']
+    assert dpq.pop() == None
 
 
 def test_removing_task():
@@ -94,9 +94,8 @@ def test_removing_task():
     dpq.push('lol')
     assert dpq.get_size() == 1
 
-    task, remove_task, _, _ = dpq.pop()
-
-    assert task == 'lol'
+    task = dpq.pop()
+    assert task.payload == 'lol'
 
     # after pop() queue size is still 1
     # because a task will stay in the queue
@@ -104,9 +103,9 @@ def test_removing_task():
 
     assert dpq.get_size() == 1
 
-    remove_task()
-    assert dpq.get_size() == 0
+    task.remove()
 
+    assert dpq.get_size() == 0
 
 def test_task_becomes_visible_if_worker_is_too_slow():
     default_visibility = 1
@@ -115,9 +114,7 @@ def test_task_becomes_visible_if_worker_is_too_slow():
     dpq.push('lol')
     assert dpq.get_size() == 1
 
-    task, remove_task, _, _ = dpq.pop()
-
-    assert task == 'lol'
+    assert dpq.pop().payload == 'lol'
 
     # after pop() queue size is still 1
     # because a task will stay in the queue
@@ -134,27 +131,24 @@ def test_task_becomes_visible_if_worker_is_too_slow():
     time.sleep(default_visibility)
     dpq.enqueue_delayed()
 
-    task, _, _, _ = dpq.pop()
-
-    assert task == 'lol'
+    assert dpq.pop().payload == 'lol'
 
 def test_pop_after_setting_visibility_to_0():
     dpq = create_dpq()
 
     dpq.push('lol')
 
-    task, _, set_visibility, _ = dpq.pop()
-    assert task == 'lol'
+    task = dpq.pop()
+    assert task.payload  == 'lol'
 
     dpq.enqueue_delayed()
 
     assert dpq.pop() == None
 
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, _ = dpq.pop()
-    assert task == 'lol'
+    assert dpq.pop().payload == 'lol'
 
 
 def test_getting_next_task_when_higher_priority_task_retries_run_out():
@@ -163,25 +157,25 @@ def test_getting_next_task_when_higher_priority_task_retries_run_out():
     dpq.push('lol', priority=2)
     dpq.push('heh', priority=1)
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 1
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 2
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 2
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'heh'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'heh'
+    assert task.attempt == 1
 
 
 def test_task_gets_dropped_after_retries():
@@ -189,43 +183,44 @@ def test_task_gets_dropped_after_retries():
 
     dpq.push('lol')
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 1
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 2
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 2
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
     assert dpq.pop() == None
+
 
 def test_setting_retires_per_task_overrides_default():
     dpq = create_dpq(default_retries=5)
 
     dpq.push('lol', retries=2)
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 1
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
-    task, _, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 2
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 2
 
     # so we can pop() it again
-    set_visibility(0)
+    task.set_invisibility(0)
     dpq.enqueue_delayed()
 
     assert dpq.pop() == None
@@ -234,14 +229,14 @@ def test_setting_retires_per_task_overrides_default():
 def test_pushing_task_already_enqueued():
     dpq = create_dpq()
 
-    dpq.push("hey", delay=5)
+    dpq.push('hey', delay=5)
 
     assert dpq.pop() == None
 
     # pushing a task that's already
     # exist and already delayed, 
     # should keep it delayed.
-    dpq.push("hey")
+    dpq.push('hey')
     assert dpq.pop() == None
 
 def test_pushing_same_task_second_time_restart_retries():
@@ -249,17 +244,17 @@ def test_pushing_same_task_second_time_restart_retries():
 
     dpq.push('lol')
 
-    task, remove_task, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 1
 
-    remove_task()
+    task.remove()
 
     dpq.push('lol')
 
-    task, remove_task, set_visibility, attempt = dpq.pop()
-    assert task == 'lol'
-    assert attempt == 1
+    task = dpq.pop()
+    assert task.payload == 'lol'
+    assert task.attempt == 1
 
 
 def test_extending_visibility():
@@ -267,8 +262,8 @@ def test_extending_visibility():
 
     dpq.push('lol')
 
-    task, _, set_visibility, _ = dpq.pop()
-    assert task == 'lol'
+    task = dpq.pop()
+    assert task.payload == 'lol'
 
     dpq.enqueue_delayed()
     assert dpq.pop() == None
@@ -276,7 +271,7 @@ def test_extending_visibility():
     # extend by 2 second should 
     # keep the task invisible and 
     # when pop() called it will get nothing
-    set_visibility(2)
+    task.set_invisibility(2)
     time.sleep(1)
 
     dpq.enqueue_delayed()
@@ -285,30 +280,24 @@ def test_extending_visibility():
 def test_pushing_with_group_id():
     dpq = create_dpq()
 
-    dpq.push("hey", group_id="aaa")
-    task, _, _, _ = dpq.pop()
-    assert task == "hey"
+    dpq.push('hey', group_id='aaa')
+    assert dpq.pop().payload == 'hey'
 
 def test_visibility_for_group_of_tasks():
     dpq = create_dpq()
 
-    dpq.push("hey", group_id="aaa", priority=5)
-    dpq.push("ho", group_id="aaa", priority=10)
-    dpq.push("vova", priority=1)
+    dpq.push('hey', group_id='aaa', priority=5)
+    dpq.push('ho', group_id='aaa', priority=10)
+    dpq.push('vova', priority=1)
 
-    dpq.delay_group("aaa", 1)
+    dpq.delay_group('aaa', 1)
     dpq.enqueue_delayed()
 
-    task, _, _, _ = dpq.pop()
-    assert task == "vova"
+    assert dpq.pop().payload == 'vova'
 
     time.sleep(1)
     dpq.enqueue_delayed()
 
-    task, _, _, _ = dpq.pop()
-    assert task == "ho"
-
-    task, _, _, _ = dpq.pop()
-    assert task == "hey"
-
+    assert dpq.pop().payload == 'ho'
+    assert dpq.pop().payload == 'hey'
     assert dpq.pop() == None
