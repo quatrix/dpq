@@ -1,7 +1,7 @@
 from typing import Any
 from pydantic import BaseModel
 from .RpqLua import RpqLua
-from typing import Callable
+from typing import Callable, Optional
 import time
 import cloudpickle
 
@@ -9,10 +9,12 @@ def _now():
     '''Get the current time, as an integer UTC timestamp.'''
     return int(time.mktime(time.gmtime()))
 
+RESERVERD_NIL_GROUP_ID = '0'
+
 class Task(BaseModel):
     payload: str
     attempt: int
-    group_id: str
+    group_id: Optional[str]
     expires: int
     remove: Callable
     set_invisibility: Callable
@@ -47,10 +49,10 @@ class DPQ(BaseModel):
             priority: float (Redis uses 64bit percision doubles for scores)
             delay: int (number of seconds to wait before task becomes available to workers)
         """
-        assert group_id != '0', '0 is reserved to indicate not part of a group'
+        assert group_id != RESERVERD_NIL_GROUP_ID, f'{RESERVERD_NIL_GROUP_ID} is reserved to indicate not part of a group'
 
         if group_id is None:
-            group_id = '0'
+            group_id = RESERVERD_NIL_GROUP_ID
 
         if delay > 0:
             delay = _now() + delay
@@ -114,6 +116,7 @@ class DPQ(BaseModel):
 
         payload, group_id, priority, attempt = task
 
+
         def remove():
             self.queue.eval('remove_from_delayed_queue', self.queue_name, payload, group_id, priority)
 
@@ -125,7 +128,7 @@ class DPQ(BaseModel):
             payload=cloudpickle.loads(payload),
             attempt=attempt,
             expires=invisible_until,
-            group_id=group_id,
+            group_id=None if group_id.decode() == RESERVERD_NIL_GROUP_ID else group_id.decode(),
             remove=remove,
             set_invisibility=set_invisibility,
         )

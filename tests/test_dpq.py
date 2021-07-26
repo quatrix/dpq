@@ -301,3 +301,21 @@ def test_visibility_for_group_of_tasks():
     assert dpq.pop().payload == 'ho'
     assert dpq.pop().payload == 'hey'
     assert dpq.pop() == None
+
+def test_getting_group_id_if_set():
+    dpq = create_dpq()
+
+    dpq.push('hey', group_id='aaa')
+    task = dpq.pop()
+
+    assert task.payload == 'hey'
+    assert task.group_id == 'aaa'
+
+def test_group_id_is_none_if_not_set():
+    dpq = create_dpq()
+
+    dpq.push('hey')
+    task = dpq.pop()
+
+    assert task.payload == 'hey'
+    assert task.group_id is None
