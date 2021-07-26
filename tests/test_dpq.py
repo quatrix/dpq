@@ -207,6 +207,29 @@ def test_task_gets_dropped_after_retries():
 
     assert dpq.pop() == None
 
+def test_setting_retires_per_task_overrides_default():
+    dpq = create_dpq(default_retries=5)
+
+    dpq.push('lol', retries=2)
+
+    task, _, set_visibility, attempt = dpq.pop()
+    assert task == 'lol'
+    assert attempt == 1
+
+    # so we can pop() it again
+    set_visibility(0)
+    dpq.enqueue_delayed()
+
+    task, _, set_visibility, attempt = dpq.pop()
+    assert task == 'lol'
+    assert attempt == 2
+
+    # so we can pop() it again
+    set_visibility(0)
+    dpq.enqueue_delayed()
+
+    assert dpq.pop() == None
+
 
 def test_pushing_task_already_enqueued():
     dpq = create_dpq()

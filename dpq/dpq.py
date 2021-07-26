@@ -22,7 +22,7 @@ class DPQ(BaseModel):
         super().__init__(**data)
         self.queue = RpqLua(self.redis)
 
-    def push(self, task: str, priority: float = 0, delay: int = 0, group_id: str = None):
+    def push(self, task: str, priority: float = 0, delay: int = 0, retries: int = None, group_id: str = None):
         """Push a task on the queue
 
         Pushes a task on the queue with an optional priority and a delay.
@@ -53,7 +53,7 @@ class DPQ(BaseModel):
             task, 
             priority, 
             delay, 
-            self.default_retries, 
+            retries or self.default_retries, # FIXME: isn't there a fancy way of doing that?
             group_id
         )
 
