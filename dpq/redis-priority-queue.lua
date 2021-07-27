@@ -94,7 +94,10 @@ local function _pop()
             local retries = tonumber(redis.call('HGET', retriesLookup, packed_payload))
             local attempt = tonumber(redis.call('HINCRBY', attemptsLookup, packed_payload, 1))
 
-            if attempt > retries then
+            -- FIXME: seems these could be nil 
+            -- in some cases, need to figure out why.
+            -- for now, comparing attempts and retries if not nil.
+            if attempt and retries and attempt > retries then
                 redis.call('HDEL', retriesLookup, packed_payload)
                 redis.call('HDEL', attemptsLookup, packed_payload)
 
