@@ -2,34 +2,32 @@
 
 ![logo](/imgs/logo.png)
 
-## WORK IN PROGRESS
+## WIP Warning
 
-not tested, not used yet, just for fun
-
+Wasn't used in produciton yet!
 
 ## What?
 
-A Python library that implementes a priority task queue over Redis Sorted Sets with a visibility delay.
+A Python library that implements a strict arbitrary priority queue with optional delayed task execution over Redis Sorted Sets.
 
-Since task order is maintained by using a Sorted Set most operations have a O(log n) complaxity, so probably 
-don't put too much tasks in the queue.
+## Features
 
-When task is popped it doesn't get deleted but becomes invisible for a set duration that can be updated during 
-task processing.
-
-When visibility expires task becomes visible again and other workers might take it.
+* Priority can be any 64bit float, anything Redis uses as Sorted Set `SCORE`.
+* When pushing a task `delay` specifies seconds until task becomes visibile to workers.
+* Task can have limited number of retries after which task will be dropped.
+* When poping a task, it will be invisible for a specified amount of time to other workers, so in case of worker failure, eventually task gets picked by another worker.
+* (EXPERIMENTAL) A task can have a `group_id` and it's possible to set a delay for an entire group of tasks, this can be useful if a group of tasks accessing a shared resource that becomes unavailable calling `delay_group` will delay all tasks of the same group.
 
 ## Why?
 
-I just couldn't find something that has both delay execution and task priority that could be any int
+I just couldn't find something that has both delayed execution and arbitrary priority.
 
 ## Use case?
 
-You're scraping an API that has a very low limit of how many requests you can make in a minute and you 
-want to make sure you first get the resources that you care about the most.
+Scraping an API with a very low rate limit, and the elements you're scraping have a timestamp and recent elements are more important than old once. 
 
-* You can assign each task an arbitrary priority (if you care about recent items more you can use item timestamp as priority)
-* When you reach the rate limit, you can put the task back in the queue and set its delay until rate limit replanishes
+* Task priority can be the timestamp
+* When rate limit is reached, task is delayed until rate limit replanishes.
 
 ## Example
 
@@ -56,7 +54,7 @@ for i in range(10):
 q = DPQ(redis=Redis(), queue_name="my_queue")
 
 while True:
-    task, on_success, set_visibility = q.pop()
+    task = q.pop()
 
     if task is None:
         print('queue is empty')
@@ -66,12 +64,12 @@ while True:
     print(f'got task {task=}')
 
     try:
-        process(task):
-        on_success()
+        process(task.payload):
+        task.remove()
     except RateLimitError:
         delay = random.randrange(50)
         print(f'setting delay for {delay} for {task=}')
-        set_visibility(delay)
+        task.set_invisibility(delay)
 ```
 
 
@@ -87,15 +85,14 @@ poetry run python delayed_tasks_scheduler.py
 
 ## Installation
 
-TBD
+```bash
+poerty install
+```
 
 ## Limitations
 
-* Currently there's only one queue per instance
 * Not blocking when queue is empty, so polling is required
-* Not returning any metadata like number of retries
 * No deadletter yet
-* O(log n) when pushing a task on the queue or updating priority/visibility
+* O(log n) when pushing a task on the queue or updating priority/delay
 * need to start a `delayed_tasks_scheduler` deamon
-* there should probably be some configuration for this deamon, currently some things are hardcoded.
-
+* setting a group delay isn't efficient.

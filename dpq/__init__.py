@@ -1,2 +1,2 @@
 from .dpq import DPQ
-from .RpqLua import RpqLua
+from .redis_lua import RedisLua
