@@ -10,6 +10,12 @@ Wasn't used in produciton yet!
 
 A Python library that implements a strict arbitrary priority queue with optional delayed task execution over Redis Sorted Sets.
 
+## Docs 
+
+Generated API reference
+
+[Docs!](https://quatrix.github.io/dpq/)
+
 ## Features
 
 * Priority can be any 64bit float, anything Redis uses as Sorted Set `SCORE`.
