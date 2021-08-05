@@ -47,8 +47,6 @@ for i in range(10):
 
     payload = {
         'body': f'hello world {i=}',
-        'priority': priority,
-        'delay': delay,
     }
 
     q.push(payload, priority=priority, delay=delay)
