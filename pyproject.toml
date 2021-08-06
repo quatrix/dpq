@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "dpq"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "delayed priority queue"
 authors = ["quatrix"]
 
 [tool.poetry.dependencies]
