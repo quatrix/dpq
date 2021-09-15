@@ -4,7 +4,7 @@
 
 ## WIP Warning
 
-Wasn't used in produciton yet!
+Wasn't used in production yet!
 
 ## What?
 
@@ -90,7 +90,7 @@ poetry run python delayed_tasks_scheduler.py
 ## Installation
 
 ```bash
-poerty install
+poetry install
 ```
 
 ## Limitations
